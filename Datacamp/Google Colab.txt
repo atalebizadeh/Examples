@@ -1,0 +1,6 @@
+https://colab.research.google.com/github/adelnehme/python-for-spreadsheet-users-webinar/blob/master/webinar_students.ipynb
+
+
+Solution:
+
+https://colab.research.google.com/github/adelnehme/python-for-spreadsheet-users-webinar/blob/master/webinar_content_full.ipynb
