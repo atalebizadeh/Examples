@@ -1,0 +1,1117 @@
+⊖
+In [1]:
+import pandas as pd
+import json
+Ultimate Technologies Inc. is an American worldwide online transportation network company that has disrupted the taxi and logistics industry and is a prestigious companies to work at. This challenge has been adapted from an actual Ultimate Inc. data science challenge.
+
+In [2]:
+#Reading in the data
+In [3]:
+login_data = pd.read_json('logins.json')
+In [4]:
+with open('ultimate_data_challenge.json') as f:
+    data = json.load(f)
+In [5]:
+data = pd.DataFrame(data)
+Part 1 ‐ Exploratory data analysis The attached logins.json file contains (simulated) timestamps of user logins in a particular geographic location. Aggregate these login counts based on 15­minute time intervals, and visualize and describe the resulting time series of login counts in ways that best characterize the underlying patterns of the demand. Please report/illustrate important features of the demand, such as daily cycles. If there are data quality issues, please report them.
+
+In [6]:
+#Checking nulls in data 
+login_data.isnull().sum()
+Out[6]:
+login_time    0
+dtype: int64
+In [7]:
+#Converting timestamp to Datetime 
+login_data_dt = pd.to_datetime(login_data['login_time'], unit='s')
+login_data_dt = pd.DataFrame(login_data_dt)
+login_data_dt.set_index('login_time', inplace = True)
+login_data_dt['count'] = 1
+In [8]:
+#15 minute aggregate intervels
+agg15 = login_data_dt.resample('15T').sum()
+agg15.reset_index(inplace = True)
+In [9]:
+import plotly.graph_objects as go
+
+def time_ser_graph(data):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=data['login_time'], y=data['count'], name="User Login Frequency Count",
+                             line_color='red'))
+
+    fig.update_layout(title_text='User Login Frequency Count', width=1000,
+        height=700, xaxis_rangeslider_visible=True)
+
+    fig.show()
+In [10]:
+time_ser_graph(agg15)
+In [11]:
+#Daily Cycles 
+agg_day = login_data_dt.resample('1D').sum()
+agg_day.reset_index(inplace = True)
+In [12]:
+time_ser_graph(agg_day)
+In [13]:
+agg_hour = login_data_dt.resample('1H').sum()
+agg_hour.reset_index(inplace = True)
+In [14]:
+time_ser_graph(agg_hour)
+In [15]:
+#Weekend vs Weekday Login
+login_data_dt.reset_index(inplace = True)
+day_of_week = login_data_dt['login_time'].dt.weekday_name
+agg_day['login_time'] = agg_day['login_time'].dt.weekday_name
+In [16]:
+agg_day.rename(columns = {'login_time': 'day_of_week'}, inplace = True)
+In [17]:
+import seaborn as sns
+from matplotlib import pyplot as plt
+
+plt.figure(figsize=(10, 8))
+sns.barplot(x='day_of_week', y= "count", data=agg_day, orient='v', palette="Set1")
+
+plt.show()
+<Figure size 1000x800 with 1 Axes>
+In [18]:
+day_count = pd.DataFrame(day_of_week.value_counts())
+In [19]:
+day_count.reset_index(inplace = True)
+In [20]:
+day_count = day_count.rename(columns={'index':'day_of_week','login_time':'count'})
+In [21]:
+import seaborn as sns
+from matplotlib import pyplot as plt
+
+plt.figure(figsize=(10, 8))
+sns.barplot(x="day_of_week", y= "count", data=day_count, orient='v', palette="Set1")
+
+plt.show()
+
+In [22]:
+#Weekend vs Weekday Time series 
+import numpy as np
+login_data_dt['day'] = login_data_dt['login_time'].dt.weekday_name
+login_data_dt['day_of_week'] = np.where(login_data_dt['day'] == 'Saturday', 'weekend', login_data_dt['day'])
+login_data_dt['day_of_week'] = np.where(login_data_dt['day_of_week'] == 'Sunday', 'weekend', login_data_dt['day_of_week'])
+login_data_dt['day_of_week'] = np.where(login_data_dt['day_of_week'] == 'weekend', 'weekend', 'weekday')
+In [23]:
+login_data_dt['hour'] = login_data_dt['login_time'].dt.time
+In [24]:
+type(login_data_dt['hour'][0])
+Out[24]:
+datetime.time
+In [25]:
+import datetime
+login_data_dt['min_15'] = login_data_dt['login_time'].apply(lambda dt: datetime.datetime(dt.year, dt.month, dt.day, dt.hour,15*(dt.minute // 15)))
+In [26]:
+login_data_dt['min_15'] = login_data_dt['min_15'].dt.time
+In [27]:
+weekday = login_data_dt[login_data_dt['day_of_week'] == 'weekday']
+weekend = login_data_dt[login_data_dt['day_of_week'] == 'weekend']
+In [28]:
+count_week = pd.DataFrame(weekday['min_15'].value_counts().reset_index())
+In [29]:
+count_week = count_week.sort_values('index')
+In [30]:
+count_week = count_week.rename(columns={'index':'login_time','min_15':'count'})
+In [31]:
+#Weekday Login Count 
+time_ser_graph(count_week)
+In [32]:
+#weekend
+count_weekend = pd.DataFrame(weekend['min_15'].value_counts().reset_index())
+count_weekend = count_weekend.sort_values('index')
+count_weekend = count_weekend.rename(columns={'index':'login_time','min_15':'count'})
+In [33]:
+time_ser_graph(count_weekend)
+Part 1 Answer
+March 1st at 4:30 am had the most logins. The number of user logins seems to be increasing over time but is suddenly dropping after April 13th. Should investigate the drop in logins. The cycle of going up and down is explained by the weekends vs weekdays.
+People tend to login more leading into the weekends starting from Thursday and then dropping back down at the start of the week on Monday. A value count shows Saturday and Sunday had the highest logins. Biggest peak time on the weekends was at 430 am while the biggest peak times on the weekdays is 11:30 am and 22:30 pm.
+
+The data was in timestamp format and was converted to date time for the analysis.
+
+Part 2 ‐ Experiment and metrics design
+
+Circadian rhythms are physical, mental, and behavioral changes that follow a daily cycle. They respond primarily to light and darkness in an organism's environment. Sleeping at night and being awake during the day is an example of a light-related circadian rhythm.
+
+The neighboring cities of Gotham and Metropolis have complementary circadian rhythms:
+
+on weekdays, Ultimate Gotham is most active at night, and Ultimate Metropolis is most active during the day.
+
+On weekends, there is reasonable activity in both cities.
+
+However, a toll bridge, with a two­way toll, between the two cities causes driving partners(the uber/lyft drivers) to tend to be exclusive to each city.
+
+The Ultimate managers of city operations for the two cities have proposed an experiment to encourage driver partners to be available in both cities, by reimbursing all toll costs. (So they want the drivers to be available to serve both cities by reimbursing the toll cost, the goal is on weekdays for drivers to be mostly concentrated in Gotham at night and then Metropolis during the day.)
+
+What would you choose as the key measure of success of this experiment in encouraging driver partners to serve both cities, and why would you choose this metric?
+
+Describe a practical experiment you would design to compare the effectiveness of the proposed change in relation to the key measure of success. Please provide details on:
+
+a. how you will implement the experiment
+
+b. what statistical test(s) you will conduct to verify the significance of the observation
+
+c. how you would interpret the results and provide recommendations to the city operations team along with any caveats.
+
+Part 2 Answers
+One metric that you would try to get and measure would be the increased profit a driver can make in a day during the weekdays by being able to serve in both cities during the peak hours. You would most likely need to measure it by profit by kilometer because a driver would still need to waste time crossing the toll bridge to be able to serve Gotham and Metropolis during a day on the weekday. You would also want to look at if there is an increase in client rate for driver partners. If all drivers can now serve both client bases there might be a problem of supply being greater than the demand with wasted drivers being in one city.
+
+Therefore you would look at if there is an increase in client per driver and would look at profit/km.
+a.
+
+To implement the experiment you would need to be able to have access to when the driving partner logged into the application that Ultimate provides. This would be able to track the mileage/kilometers that the driver has traveled throughout the day. Most drivers would be smart to be able to track their own oil usage for their cars vs the profit they have earned for the day. If the application is able to do that, then it would be both benefit for Ultimate and the drivers.
+
+Then of course you would want to compare the number of active vs non active driving partners during both peak times at Gotham and Metropolis. Drivers starting a tab would be considred active. We would want to compare this to before the program of reimbursing the toll fees.
+
+Also depending on which comic issue we are talking about Downtown Metropolis to Downtown Gotham City is a 60 to 90 minute drive depending on traffic. This should be taken into account.
+
+source https://www.quora.com/DC-Comics-How-far-is-Gotham-from-Metropolis
+b.
+
+A t-test could be done. For example a difference of means. Depending on whether the sample data that we collect is normal or not. If it is not normal then we would perform a non-parametric test to see if the distributions are different.
+But assuming they were normal and hoping this program could benefit both Ultimate and the driving partners the null hypothesis would be that there is no difference in profit/km for driving partners after the toll bridge program. While, the alternative hypothesis would be profif/km is greater for driving partners after the program.
+Similarly for active vs non-active cars. H0 would be there is no mean difference for active and non-active cars after the toll bridge program. HA would be there is a difference.
+
+c.
+
+If there is an increase in profit/km for the driving partners vs the mean of before the program then it would be a success for the driving partners. However, for Ultimate they would need to look at the overall cost of doing the program if it outweighs it for the company in its bottom line.
+
+It is important to also look at vacant vs non vacant. Many drivers perhaps hearing of the program would all rush to one city location and this would cause drivers to canabalize each others business causing a shortage perhaps in the other City which isn't at peak hours. This perhaps could hurt revenue for us as there might be more vacant drivers who are wasting 90 minutes of potential client ride time from crossing the bridge.
+
+Part 3 ‐ Predictive modeling Ultimate is interested in predicting rider retention. To help explore this question, we have provided a sample dataset of a cohort of users who signed up for an Ultimate account in January 2014.
+
+The data was pulled several months later; we consider a user retained if they were “active” (i.e. took a trip) in the preceding 30 days.
+
+We would like you to use this data set to help understand what factors are the best predictors for retention, and offer suggestions to operationalize those insights to help Ultimate. The data is in the attached file ultimate_data_challenge.json. See below for a detailed description of the dataset. Please include any code you wrote for the analysis and delete the dataset when you have finished with the challenge.
+
+Perform any cleaning, exploratory analysis, and/or visualizations to use the provided data for this analysis (a few sentences/plots describing your approach will suffice). What fraction of the observed users were retained?
+Build a predictive model to help Ultimate determine whether or not a user will be active in their 6th month on the system. Discuss why you chose your approach, what alternatives you considered, and any concerns you have. How valid is your model? Include any key indicators of model performance.
+Briefly discuss how Ultimate might leverage the insights gained from the model to improve its long­term rider retention (again, a few sentences will suffice).
+In [34]:
+#Checking for nulls 
+data.isnull().sum()
+#explore why avg_rating_of_driver is missing, user might have been too lazy to leave a review. 
+#phone missing values, could be because person used a computer or non apple or android device
+#avg_rating_by_driver is also missing, driver might have been too lazy to leave review
+Out[34]:
+city                         0
+trips_in_first_30_days       0
+signup_date                  0
+avg_rating_of_driver      8122
+avg_surge                    0
+last_trip_date               0
+phone                      396
+surge_pct                    0
+ultimate_black_user          0
+weekday_pct                  0
+avg_dist                     0
+avg_rating_by_driver       201
+dtype: int64
+In [35]:
+data.info()
+#city should be changed to categorical
+#sign up should be changed to date time
+#last_trip_date should be changed to date time
+#phone categorical 
+#need to transform to numerical with onehotencoder or columntransformer
+#avg_dist? miles? kilometers?
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 50000 entries, 0 to 49999
+Data columns (total 12 columns):
+city                      50000 non-null object
+trips_in_first_30_days    50000 non-null int64
+signup_date               50000 non-null object
+avg_rating_of_driver      41878 non-null float64
+avg_surge                 50000 non-null float64
+last_trip_date            50000 non-null object
+phone                     49604 non-null object
+surge_pct                 50000 non-null float64
+ultimate_black_user       50000 non-null bool
+weekday_pct               50000 non-null float64
+avg_dist                  50000 non-null float64
+avg_rating_by_driver      49799 non-null float64
+dtypes: bool(1), float64(6), int64(1), object(4)
+memory usage: 4.2+ MB
+Data description
+
+● city: city this user signed up in
+
+● phone: primary device for this user
+
+● signup_date: date of account registration; in the form ‘YYYYMMDD’
+
+● last_trip_date: the last time this user completed a trip; in the form ‘YYYYMMDD’
+
+● avg_dist: the average distance in miles per trip taken in the first 30 days after signup
+
+● avg_rating_by_driver: the rider’s average rating over all of their trips
+
+● avg_rating_of_driver: the rider’s average rating of their drivers over all of their trips
+
+● surge_pct: the percent of trips taken with surge multiplier > 1
+
+● avg_surge: The average surge multiplier over all of this user’s trips
+
+● trips_in_first_30_days: the number of trips this user took in the first 30 days after signing up
+
+● ultimate_black_user: TRUE if the user took an Ultimate Black in their first 30 days; FALSE otherwise
+
+● weekday_pct: the percent of the user’s trips occurring during a weekday
+
+In [36]:
+data[data['avg_dist'] == 0][0:15]
+#Notes
+#It looks likee for some reason users gave ratings while having an average distance of 0
+#Lets drop theses rows since they are probably errors, or fake users who didn't use the system.
+Out[36]:
+city	trips_in_first_30_days	signup_date	avg_rating_of_driver	avg_surge	last_trip_date	phone	surge_pct	ultimate_black_user	weekday_pct	avg_dist	avg_rating_by_driver
+72	Astapor	1	2014-01-07	5.0	1.0	2014-01-08	iPhone	0.0	False	100.0	0.0	3.0
+116	Winterfell	1	2014-01-10	5.0	1.0	2014-01-11	Android	0.0	False	100.0	0.0	5.0
+188	Winterfell	1	2014-01-11	NaN	1.0	2014-01-14	Android	0.0	False	100.0	0.0	5.0
+356	Winterfell	1	2014-01-15	4.0	1.0	2014-01-16	Android	0.0	False	100.0	0.0	5.0
+479	Winterfell	1	2014-01-24	5.0	1.0	2014-01-25	iPhone	0.0	False	0.0	0.0	5.0
+975	Winterfell	1	2014-01-26	NaN	1.0	2014-01-26	None	0.0	True	0.0	0.0	4.0
+1194	Winterfell	1	2014-01-17	3.0	1.0	2014-02-07	Android	0.0	False	100.0	0.0	4.0
+1519	Winterfell	1	2014-01-22	5.0	1.0	2014-01-23	Android	0.0	False	100.0	0.0	5.0
+1524	Winterfell	0	2014-01-01	5.0	1.0	2014-05-22	iPhone	0.0	False	100.0	0.0	5.0
+1575	Winterfell	1	2014-01-18	4.0	1.0	2014-01-19	iPhone	0.0	False	0.0	0.0	5.0
+1797	Astapor	1	2014-01-03	NaN	1.0	2014-01-04	iPhone	0.0	False	100.0	0.0	5.0
+1798	Astapor	1	2014-01-25	3.0	1.0	2014-01-25	iPhone	0.0	False	0.0	0.0	5.0
+2046	Astapor	1	2014-01-17	NaN	1.0	2014-01-17	Android	0.0	False	100.0	0.0	4.0
+2322	Winterfell	1	2014-01-25	NaN	1.0	2014-02-10	iPhone	0.0	False	0.0	0.0	4.0
+2396	King's Landing	1	2014-01-23	5.0	1.0	2014-01-24	iPhone	0.0	False	100.0	0.0	5.0
+In [37]:
+#Drop all rows where avg_distance is equal to 0 
+data1 = data[data['avg_dist'] != 0]
+In [38]:
+data1.isnull().sum()
+Out[38]:
+city                         0
+trips_in_first_30_days       0
+signup_date                  0
+avg_rating_of_driver      8045
+avg_surge                    0
+last_trip_date               0
+phone                      395
+surge_pct                    0
+ultimate_black_user          0
+weekday_pct                  0
+avg_dist                     0
+avg_rating_by_driver       200
+dtype: int64
+In [39]:
+data1['signup_date'] = pd.to_datetime(data1['signup_date']) 
+data1['last_trip_date'] = pd.to_datetime(data1['last_trip_date'])
+/Users/justin/anaconda3/lib/python3.7/site-packages/ipykernel_launcher.py:1: SettingWithCopyWarning:
+
+
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+
+/Users/justin/anaconda3/lib/python3.7/site-packages/ipykernel_launcher.py:2: SettingWithCopyWarning:
+
+
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+
+In [40]:
+#difference between days signup to last trip date 
+data1['days_between'] = data1['last_trip_date'] - data1['signup_date']
+/Users/justin/anaconda3/lib/python3.7/site-packages/ipykernel_launcher.py:2: SettingWithCopyWarning:
+
+
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+
+In [41]:
+data1['last_trip_date']
+Out[41]:
+0       2014-06-17
+1       2014-05-05
+2       2014-01-07
+3       2014-06-29
+4       2014-03-15
+           ...    
+49994   2014-05-31
+49995   2014-06-05
+49997   2014-05-22
+49998   2014-01-15
+49999   2014-04-20
+Name: last_trip_date, Length: 49850, dtype: datetime64[ns]
+In [42]:
+data1['last_trip_date'].max() 
+lastthir = data1[data1["last_trip_date"] >= (pd.to_datetime('7/01/2014') - pd.Timedelta(days=30))]
+In [43]:
+lastthir['active'] = 'Yes'
+/Users/justin/anaconda3/lib/python3.7/site-packages/ipykernel_launcher.py:1: SettingWithCopyWarning:
+
+
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+
+In [44]:
+data1['active'] = lastthir['active']
+/Users/justin/anaconda3/lib/python3.7/site-packages/ipykernel_launcher.py:1: SettingWithCopyWarning:
+
+
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+
+In [45]:
+#we consider a user retained if they were “active” (i.e. took a trip) in the preceding 30 days.**
+data1['active'] = data1['active'].replace(np.nan, 'No')
+/Users/justin/anaconda3/lib/python3.7/site-packages/ipykernel_launcher.py:2: SettingWithCopyWarning:
+
+
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+
+In [46]:
+(data1['active'] == 'Yes').sum()
+Out[46]:
+18789
+In [47]:
+data1['days_between'] = data1['days_between'].astype(int)/86400000000000
+/Users/justin/anaconda3/lib/python3.7/site-packages/ipykernel_launcher.py:1: SettingWithCopyWarning:
+
+
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+
+In [48]:
+data2 = data1[data1['avg_rating_of_driver'] > 0]
+data2['phone'] = data2['phone'].astype(str)
+data2['phone'].replace('NaN',0)
+data2 = data2[data2['phone'] != 'nan']
+data2 = data2[data2['avg_rating_by_driver'] > 0]
+/Users/justin/anaconda3/lib/python3.7/site-packages/ipykernel_launcher.py:2: SettingWithCopyWarning:
+
+
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+
+In [49]:
+#look at the correlation between numericals
+corr = data2.corr()
+corr.style.background_gradient(cmap='coolwarm')
+#not much is trongly correlated besides the obvous of surge_pct and avg_surge
+Out[49]:
+trips_in_first_30_days	avg_rating_of_driver	avg_surge	surge_pct	ultimate_black_user	weekday_pct	avg_dist	avg_rating_by_driver	days_between
+trips_in_first_30_days	1	-0.0122917	-0.00053996	0.00503075	0.114999	0.0549218	-0.137381	-0.0474415	0.156964
+avg_rating_of_driver	-0.0122917	1	-0.0226788	-0.00237614	-0.00279616	0.0122646	0.0337118	0.1187	-0.0181833
+avg_surge	-0.00053996	-0.0226788	1	0.795516	-0.071995	-0.119274	-0.08633	0.0132386	-0.0140218
+surge_pct	0.00503075	-0.00237614	0.795516	1	-0.101521	-0.155396	-0.111898	0.0197419	0.0069691
+ultimate_black_user	0.114999	-0.00279616	-0.071995	-0.101521	1	0.0339685	0.0256447	0.00550885	0.182999
+weekday_pct	0.0549218	0.0122646	-0.119274	-0.155396	0.0339685	1	0.102714	0.0174415	0.0158139
+avg_dist	-0.137381	0.0337118	-0.08633	-0.111898	0.0256447	0.102714	1	0.0827357	-0.112496
+avg_rating_by_driver	-0.0474415	0.1187	0.0132386	0.0197419	0.00550885	0.0174415	0.0827357	1	-0.0514783
+days_between	0.156964	-0.0181833	-0.0140218	0.0069691	0.182999	0.0158139	-0.112496	-0.0514783	1
+In [50]:
+phone_use = pd.DataFrame(data2['phone'].value_counts().reset_index())
+city_count = pd.DataFrame(data2['city'].value_counts().reset_index())
+black_count = pd.DataFrame(data2['ultimate_black_user'].value_counts().reset_index())
+In [51]:
+black_count['index'] = np.where(black_count['index'] == True, 'ultimate_black_user', 'non_ultimate_user')
+In [52]:
+#Bokeh Graph City, phone, ultimate_black_user
+from bokeh.io import show, output_notebook
+from bokeh.models import ColumnDataSource, HoverTool
+from bokeh.plotting import figure
+from bokeh.models.widgets import Panel, Tabs
+
+output_notebook()
+
+device = list(phone_use['index'])
+counts = list(phone_use['phone'])
+
+source = ColumnDataSource(data=dict(device=device, counts=counts))
+
+p = figure(x_range=device, y_range=(0,40000),  plot_width=900, plot_height=700, title="User Count on Device",
+           toolbar_location='below', tools="pan,wheel_zoom,box_zoom,reset")
+
+
+p.vbar(x='device', top='counts', width=0.9, color = 'blue', source=source)
+p.title.align = 'center'
+p.xgrid.grid_line_color = None
+p.xaxis.major_label_orientation = "vertical"
+p.left[0].formatter.use_scientific = False
+p.add_tools(HoverTool(tooltips=[("Device", "@device"), ("Count", "@counts")]))
+
+p.title.text_font_size = '20pt'
+p.xaxis.axis_label="Device Name"
+p.xaxis.axis_label_text_font_size = "15pt"
+p.xaxis.major_label_text_font_size = "15pt"
+p.xaxis.axis_label_text_font = "times"
+p.xaxis.axis_label_text_color = "black"
+
+
+p.yaxis.axis_label="Count"
+p.yaxis.axis_label_text_font_size = "15pt"
+p.yaxis.major_label_text_font_size = "15pt"
+p.yaxis.axis_label_text_font = "times"
+p.yaxis.axis_label_text_color = "black"
+
+
+
+tab1 = Panel(child=p, title="User Count on Device")
+
+
+
+
+city = list(city_count['index'])
+counts = list(city_count['city'])
+
+source = ColumnDataSource(data=dict(city=city, counts=counts))
+
+p1 = figure(x_range=city, y_range=(0,20000),  plot_width=900, plot_height=700, title="User Count in Cities",
+           toolbar_location='below', tools="pan,wheel_zoom,box_zoom,reset")
+
+
+p1.vbar(x='city', top='counts', width=0.9, color = 'red', source=source)
+p1.title.align = 'center'
+p1.xgrid.grid_line_color = None
+p1.xaxis.major_label_orientation = "vertical"
+p1.left[0].formatter.use_scientific = False
+p1.add_tools(HoverTool(tooltips=[("City", "@city"), ("Count", "@counts")]))
+
+p1.title.text_font_size = '20pt'
+p1.xaxis.axis_label="City"
+p1.xaxis.axis_label_text_font_size = "15pt"
+p1.xaxis.major_label_text_font_size = "15pt"
+p1.xaxis.axis_label_text_font = "times"
+p1.xaxis.axis_label_text_color = "black"
+
+
+p1.yaxis.axis_label="Count"
+p1.yaxis.axis_label_text_font_size = "15pt"
+p1.yaxis.major_label_text_font_size = "15pt"
+p1.yaxis.axis_label_text_font = "times"
+p1.yaxis.axis_label_text_color = "black"
+
+tab2 = Panel(child=p1, title="User Count on Device")
+
+
+black = list(black_count['index'])
+counts = list(black_count['ultimate_black_user'])
+
+source = ColumnDataSource(data=dict(black=black, counts=counts))
+
+p2 = figure(x_range=black, y_range=(0,33000),  plot_width=900, plot_height=700, title="Ultimate User vs Non Ultimate User",
+           toolbar_location='below', tools="pan,wheel_zoom,box_zoom,reset")
+
+
+p2.vbar(x='black', top='counts', width=0.9, color = 'purple', source=source)
+p2.title.align = 'center'
+p2.xgrid.grid_line_color = None
+p2.xaxis.major_label_orientation = "vertical"
+p2.left[0].formatter.use_scientific = False
+p2.add_tools(HoverTool(tooltips=[("Ultimate Black", "@black"), ("Count", "@counts")]))
+
+p2.title.text_font_size = '20pt'
+p2.xaxis.axis_label="Is Ultimate Black User?"
+p2.xaxis.axis_label_text_font_size = "15pt"
+p2.xaxis.major_label_text_font_size = "15pt"
+p2.xaxis.axis_label_text_font = "times"
+p2.xaxis.axis_label_text_color = "black"
+
+
+p2.yaxis.axis_label="Count"
+p2.yaxis.axis_label_text_font_size = "15pt"
+p2.yaxis.major_label_text_font_size = "15pt"
+p2.yaxis.axis_label_text_font = "times"
+p2.yaxis.axis_label_text_color = "black"
+
+tab3 = Panel(child=p2, title="Ultimate Black vs Non-Ultimate")
+
+
+tabs = Tabs(tabs=[tab1, tab2, tab3])
+show(tabs)
+Loading BokehJS ...
+In [53]:
+#avg_dist vs avg_rating_by_driver, 
+rate = list(data2['avg_rating_by_driver'])
+dist = list(data2['avg_dist'])
+p = figure(plot_width=1000, plot_height=1000,toolbar_location='below', tools="pan,wheel_zoom,box_zoom,reset",)
+source = ColumnDataSource(data=dict(rate=rate, dist=dist))
+
+
+# add a circle renderer with a size, color, and alpha
+p.circle('rate', 'dist', size=10, color="navy", alpha=0.5, source = source)
+
+p.add_tools(HoverTool(tooltips=[("User Rating", "@rate"), ("Distance", "@dist")]))
+
+
+# show the results
+show(p)
+In [54]:
+#avg_dist vs avg_rating_of_driver 
+rate = list(data2['avg_rating_of_driver'])
+dist = list(data2['avg_dist'])
+p = figure(plot_width=1000, plot_height=1000,toolbar_location='below', tools="pan,wheel_zoom,box_zoom,reset",)
+source = ColumnDataSource(data=dict(rate=rate, dist=dist))
+
+
+# add a circle renderer with a size, color, and alpha
+p.circle('rate', 'dist', size=10, color="navy", alpha=0.5, source = source)
+
+p.add_tools(HoverTool(tooltips=[("Driver Rating", "@rate"), ("Distance", "@dist")]))
+
+
+# show the results
+show(p)
+In [55]:
+data2[data2['avg_rating_of_driver'] == 1].describe()
+Out[55]:
+trips_in_first_30_days	avg_rating_of_driver	avg_surge	surge_pct	weekday_pct	avg_dist	avg_rating_by_driver	days_between
+count	245.000000	245.0	245.000000	245.000000	245.000000	245.000000	245.000000	245.000000
+mean	0.804082	1.0	1.108571	8.142857	55.042041	6.816327	4.520816	67.248980
+std	0.753668	0.0	0.525230	24.177076	43.961172	6.968628	0.948432	58.141638
+min	0.000000	1.0	1.000000	0.000000	0.000000	0.010000	1.000000	0.000000
+25%	0.000000	1.0	1.000000	0.000000	0.000000	2.210000	4.400000	3.000000
+50%	1.000000	1.0	1.000000	0.000000	50.000000	4.540000	5.000000	58.000000
+75%	1.000000	1.0	1.000000	0.000000	100.000000	8.730000	5.000000	126.000000
+max	4.000000	1.0	8.000000	100.000000	100.000000	47.360000	5.000000	176.000000
+In [56]:
+data2[data2['avg_rating_of_driver'] == 5].describe()
+Out[56]:
+trips_in_first_30_days	avg_rating_of_driver	avg_surge	surge_pct	weekday_pct	avg_dist	avg_rating_by_driver	days_between
+count	20628.000000	20628.0	20628.000000	20628.000000	20628.000000	20628.000000	20628.000000	20628.000000
+mean	1.684313	5.0	1.071238	8.738879	60.838176	6.100756	4.819793	83.788976
+std	2.911056	0.0	0.219747	20.566956	38.784773	5.945261	0.419267	62.093651
+min	0.000000	5.0	1.000000	0.000000	0.000000	0.010000	1.000000	0.000000
+25%	0.000000	5.0	1.000000	0.000000	33.300000	2.400000	4.800000	13.000000
+50%	1.000000	5.0	1.000000	0.000000	66.700000	4.050000	5.000000	93.000000
+75%	2.000000	5.0	1.010000	3.100000	100.000000	7.612500	5.000000	143.000000
+max	125.000000	5.0	5.750000	100.000000	100.000000	79.690000	5.000000	181.000000
+In [57]:
+data2[data2['avg_rating_by_driver'] == 1].describe()
+Out[57]:
+trips_in_first_30_days	avg_rating_of_driver	avg_surge	surge_pct	weekday_pct	avg_dist	avg_rating_by_driver	days_between
+count	86.000000	86.000000	86.000000	86.000000	86.000000	86.000000	86.0	86.000000
+mean	0.569767	4.244186	1.088721	7.558140	66.860465	4.843605	1.0	48.348837
+std	0.521101	1.301005	0.371245	26.028764	46.406430	4.906939	0.0	53.300870
+min	0.000000	1.000000	1.000000	0.000000	0.000000	0.010000	1.0	0.000000
+25%	0.000000	4.000000	1.000000	0.000000	0.000000	1.517500	1.0	1.000000
+50%	1.000000	5.000000	1.000000	0.000000	100.000000	2.835000	1.0	21.500000
+75%	1.000000	5.000000	1.000000	0.000000	100.000000	5.917500	1.0	85.250000
+max	2.000000	5.000000	3.250000	100.000000	100.000000	18.280000	1.0	168.000000
+In [58]:
+data2[data2['avg_rating_by_driver'] == 5].describe()
+Out[58]:
+trips_in_first_30_days	avg_rating_of_driver	avg_surge	surge_pct	weekday_pct	avg_dist	avg_rating_by_driver	days_between
+count	21708.000000	21708.000000	21708.000000	21708.000000	21708.000000	21708.000000	21708.0	21708.000000
+mean	1.365580	4.657992	1.075817	8.989847	61.077879	6.399458	5.0	75.935231
+std	1.804806	0.639345	0.241339	21.670215	40.096884	6.133258	0.0	61.500199
+min	0.000000	1.000000	1.000000	0.000000	0.000000	0.010000	5.0	0.000000
+25%	0.000000	4.500000	1.000000	0.000000	25.000000	2.440000	5.0	6.000000
+50%	1.000000	5.000000	1.000000	0.000000	66.700000	4.290000	5.0	77.000000
+75%	2.000000	5.000000	1.000000	0.000000	100.000000	8.160000	5.0	136.000000
+max	53.000000	5.000000	8.000000	100.000000	100.000000	79.690000	5.0	181.000000
+Part 3 part 1
+Perform any cleaning, exploratory analysis, and/or visualizations to use the provided data for this analysis (a few sentences/plots describing your approach will suffice). What fraction of the observed users were retained?
+
+For the cleaning portion we had to change the signup date, and last trip to datetime. Also created another column as a feature fore later when doing predictive modeling to see the number of days between sign up and last trip.
+* There were quite a few NaN values.  However, this might be because the user or the driver simply forgot or was not in the mood to leave a review.  The missing values for phone device, the user might have used a computer to make the booking so it wasn't removed.  We have enough data left afte removing these rows.  Should ask the company to investigate this or do a promotional to get encourage users and drivers to stay on top of giving ratings. 
+
+
+* There isn't a strong correlation with any of the columns.  Besides average surge and percentage surge, but they are the same thing. 
+
+
+* Doing a bar graph of device, city and ultimate users vs non.  
+
+    * Apple was the more popular device to make bookings
+
+    * The most amount of bookings was made in winterfell
+
+    * There were more non-Ultimate-users  so more people did not use Ultimate black in their first 30 days. 
+
+* Looking at the scatter graph
+
+    * drivers who rated the user higher tended to travel more
+
+    * 4 to 5 star drivers would get more mileage, however there were quite a few 1 star mileage high drivers.  Should investigate this. 
+
+    * By doing a describe on the data we can confirm this.  Most noticably users who got worse ratings would travel much less than users with 5 star ratings.  Should do a survey on why these drivers gave the users such a low rating. 
+
+
+ * We removed close to 1/5 of the data that had NaNs.  We should ask the company why there were missing values.  However, we have enough of a sample size left 41671 to make a predictive model.  
+Part 3 section 2
+In [210]:
+#Onehotencoding 
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import make_column_transformer
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, GridSearchCV
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, roc_auc_score
+import xgboost as xgb
+In [71]:
+data2['active'] = data2['active'].astype('category').cat.codes
+In [93]:
+data2.head()
+Out[93]:
+city	trips_in_first_30_days	signup_date	avg_rating_of_driver	avg_surge	last_trip_date	phone	surge_pct	ultimate_black_user	weekday_pct	avg_dist	avg_rating_by_driver	days_between	active
+0	King's Landing	4	2014-01-25	4.7	1.10	2014-06-17	iPhone	15.4	True	46.2	3.67	5.0	143.0	1
+1	Astapor	0	2014-01-29	5.0	1.00	2014-05-05	Android	0.0	False	50.0	8.26	5.0	96.0	0
+2	Astapor	3	2014-01-06	4.3	1.00	2014-01-07	iPhone	0.0	False	100.0	0.77	5.0	1.0	0
+3	King's Landing	9	2014-01-10	4.6	1.14	2014-06-29	iPhone	20.0	True	80.0	2.36	4.9	170.0	1
+4	Winterfell	14	2014-01-27	4.4	1.19	2014-03-15	Android	11.8	False	82.4	3.13	4.9	47.0	0
+In [72]:
+# 1 is active 0 is non-active
+y = data2['active']
+In [183]:
+data3 = data2.loc[:,['city', 'avg_rating_of_driver', 
+                     'avg_surge', 'phone', 'ultimate_black_user', 'weekday_pct', 'avg_dist',
+                    'avg_rating_by_driver', 'days_between']]
+#kings landing = 1, astapor = 0, winterfell = 2
+data3['city'] = data3['city'].astype('category').cat.codes
+# 2 is iphone, 0 is android
+data3['phone'] = data3['phone'].astype('category').cat.codes
+#1 is True 0 is False
+data3['ultimate_black_user'] = data3['ultimate_black_user'].astype('category').cat.codes
+X = data3
+In [184]:
+X2 = data2.loc[:,['city', 'avg_rating_of_driver', 
+                     'avg_surge', 'phone', 'ultimate_black_user', 'weekday_pct', 'avg_dist',
+                    'avg_rating_by_driver', 'days_between']]
+In [185]:
+column_trans = make_column_transformer(
+    (OneHotEncoder(), ['city', 'phone', 'ultimate_black_user']), remainder = 'passthrough')
+In [186]:
+#CrossValScore Testing
+In [187]:
+#Logistic Regression 
+logreg = LogisticRegression(solver = 'lbfgs')
+In [188]:
+pipe = make_pipeline(column_trans, logreg)
+In [189]:
+cross_val_score(pipe, X2, y, cv = 5, scoring = 'accuracy').mean()
+/Users/justin/anaconda3/lib/python3.7/site-packages/sklearn/linear_model/_logistic.py:940: ConvergenceWarning:
+
+lbfgs failed to converge (status=1):
+STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
+
+Increase the number of iterations (max_iter) or scale the data as shown in:
+    https://scikit-learn.org/stable/modules/preprocessing.html
+Please also refer to the documentation for alternative solver options:
+    https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression
+
+/Users/justin/anaconda3/lib/python3.7/site-packages/sklearn/linear_model/_logistic.py:940: ConvergenceWarning:
+
+lbfgs failed to converge (status=1):
+STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
+
+Increase the number of iterations (max_iter) or scale the data as shown in:
+    https://scikit-learn.org/stable/modules/preprocessing.html
+Please also refer to the documentation for alternative solver options:
+    https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression
+
+/Users/justin/anaconda3/lib/python3.7/site-packages/sklearn/linear_model/_logistic.py:940: ConvergenceWarning:
+
+lbfgs failed to converge (status=1):
+STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
+
+Increase the number of iterations (max_iter) or scale the data as shown in:
+    https://scikit-learn.org/stable/modules/preprocessing.html
+Please also refer to the documentation for alternative solver options:
+    https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression
+
+/Users/justin/anaconda3/lib/python3.7/site-packages/sklearn/linear_model/_logistic.py:940: ConvergenceWarning:
+
+lbfgs failed to converge (status=1):
+STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
+
+Increase the number of iterations (max_iter) or scale the data as shown in:
+    https://scikit-learn.org/stable/modules/preprocessing.html
+Please also refer to the documentation for alternative solver options:
+    https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression
+
+/Users/justin/anaconda3/lib/python3.7/site-packages/sklearn/linear_model/_logistic.py:940: ConvergenceWarning:
+
+lbfgs failed to converge (status=1):
+STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
+
+Increase the number of iterations (max_iter) or scale the data as shown in:
+    https://scikit-learn.org/stable/modules/preprocessing.html
+Please also refer to the documentation for alternative solver options:
+    https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression
+
+Out[189]:
+0.9546447254825493
+In [191]:
+#Random Forest
+rf = RandomForestClassifier()
+In [192]:
+pipe = make_pipeline(column_trans, rf)
+In [193]:
+cross_val_score(pipe, X2, y, cv = 5, scoring = 'accuracy').mean()
+Out[193]:
+0.9569245344595586
+In [194]:
+#XGBOOST
+xgb = xg_clf = xgb.XGBClassifier()
+In [195]:
+pipe = make_pipeline(column_trans, xgb)
+In [196]:
+cross_val_score(pipe, X2, y, cv = 5, scoring = 'accuracy').mean()
+Out[196]:
+0.9593962906482778
+In [ ]:
+#Train Test Split
+In [197]:
+#split the data to test & training sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, 
+                                                    random_state = 77)
+In [198]:
+#Logistic Regression GridSearchCV for best parameters 
+lr = LogisticRegression()
+#Hyper tuning 
+max_iter = range(10,1000,10)
+
+solver = ['newton-cg', 'sag', 'saga', 'lbfgs']
+C = np.linspace(0, 20, 50)
+
+# Create hyperparameter options
+hyperparameters = dict(C = C, max_iter = max_iter, solver = solver)
+
+clf = RandomizedSearchCV(lr, hyperparameters, cv=5, n_jobs=-1,n_iter = 10, random_state = 77)
+%time lr_fit = clf.fit(X_train, y_train)
+CPU times: user 4.11 s, sys: 663 ms, total: 4.77 s
+Wall time: 11.6 s
+In [199]:
+lr_fit.best_params_
+Out[199]:
+{'solver': 'lbfgs', 'max_iter': 840, 'C': 11.020408163265307}
+In [200]:
+lr_fit.best_score_
+Out[200]:
+0.9548536610362044
+In [201]:
+lr = LogisticRegression(solver = 'lbfgs', max_iter = 840, C = 11.02)
+%time lr.fit(X_train,y_train)
+y_pred = lr.predict(X_test)
+round((y_pred==y_test).sum()/len(y_pred), 6)
+CPU times: user 5 s, sys: 563 ms, total: 5.56 s
+Wall time: 936 ms
+Out[201]:
+0.961608
+In [202]:
+#from sklearn.metrics import classification_report
+target_names = ['Active', 'Non-Active']
+print(classification_report(y_test, y_pred, target_names = target_names))
+              precision    recall  f1-score   support
+
+      Active       0.97      0.96      0.97      4951
+  Non-Active       0.94      0.96      0.95      3384
+
+    accuracy                           0.96      8335
+   macro avg       0.96      0.96      0.96      8335
+weighted avg       0.96      0.96      0.96      8335
+
+In [203]:
+#Random Forest RandomizedSearchCV for best parameters 
+rf_clf = RandomForestClassifier()
+
+hyperparameters = {
+    'n_estimators': range(50,1000,100), 
+    'max_depth': [5,50,100, 200, 300, 400, 500],
+    'max_features': ['auto', 'sqrt', 'log2']
+}
+
+clf = RandomizedSearchCV(rf_clf, hyperparameters, cv=5, n_jobs=-1, n_iter = 10, random_state = 77)
+%time rf_fit = clf.fit(X_train, y_train)
+CPU times: user 13.9 s, sys: 261 ms, total: 14.2 s
+Wall time: 1min 15s
+In [204]:
+rf_fit.best_params_
+Out[204]:
+{'n_estimators': 750, 'max_features': 'sqrt', 'max_depth': 100}
+In [205]:
+rf_fit.best_score_
+Out[205]:
+0.9558435980420535
+In [206]:
+rf_clf = RandomForestClassifier(n_estimators = 750, max_features = 'sqrt', max_depth = 100)
+%time rf_clf.fit(X_train,y_train)
+y_pred = rf_clf.predict(X_test)
+round((y_pred==y_test).sum()/len(y_pred), 6)
+CPU times: user 13.9 s, sys: 118 ms, total: 14 s
+Wall time: 14 s
+Out[206]:
+0.962448
+In [207]:
+importances = rf_clf.feature_importances_
+sorted(zip(importances, X_test), reverse=True)
+Out[207]:
+[(0.7770267119737886, 'days_between'),
+ (0.04983314330754019, 'avg_rating_by_driver'),
+ (0.038763442914008614, 'avg_dist'),
+ (0.03786101580157127, 'weekday_pct'),
+ (0.03649012877512547, 'avg_surge'),
+ (0.016450750041403464, 'phone'),
+ (0.016204278299143057, 'avg_rating_of_driver'),
+ (0.015979723316358586, 'city'),
+ (0.011390805571060762, 'ultimate_black_user')]
+In [208]:
+target_names = ['Active', 'Non-Active']
+print(classification_report(y_test, y_pred, target_names = target_names))
+              precision    recall  f1-score   support
+
+      Active       0.97      0.96      0.97      4951
+  Non-Active       0.95      0.96      0.95      3384
+
+    accuracy                           0.96      8335
+   macro avg       0.96      0.96      0.96      8335
+weighted avg       0.96      0.96      0.96      8335
+
+In [211]:
+#XGBOOST
+#Instantiate our model 
+xg_clf = xgb.XGBClassifier()
+
+hyperparameters = {
+    'n_estimators': [50, 100, 150, 200, 250], 
+    'max_depth': [5, 7, 11, 15],
+    'learning_rate': [0.1,0.3,0.5,0.7,0.9,1],
+    'alpha': [5,10,15,20]
+}
+
+clf = RandomizedSearchCV(xg_clf, hyperparameters, cv=5, n_jobs=-1, n_iter = 10, random_state = 77)
+%time xg_fit = clf.fit(X_train, y_train)
+CPU times: user 3.72 s, sys: 178 ms, total: 3.89 s
+Wall time: 44.4 s
+In [212]:
+xg_fit.best_params_
+Out[212]:
+{'n_estimators': 100, 'max_depth': 5, 'learning_rate': 0.1, 'alpha': 15}
+In [213]:
+xg_fit.best_score_
+Out[213]:
+0.9577634750536019
+In [214]:
+xg_clf = xgb.XGBClassifier(n_estimators = 100, max_depth = 5, learning_rate = 0.1, alpha = 15)
+%time xg_clf.fit(X_train,y_train)
+y_pred = xg_clf.predict(X_test)
+round((y_pred==y_test).sum()/len(y_pred), 6)
+CPU times: user 3.22 s, sys: 127 ms, total: 3.35 s
+Wall time: 2.4 s
+Out[214]:
+0.962328
+In [215]:
+importances = xg_clf.feature_importances_
+sorted(zip(importances, X_test), reverse=True)
+Out[215]:
+[(0.8942139, 'days_between'),
+ (0.02756705, 'phone'),
+ (0.025640935, 'ultimate_black_user'),
+ (0.020691533, 'city'),
+ (0.0073027555, 'weekday_pct'),
+ (0.0064787604, 'avg_dist'),
+ (0.006356739, 'avg_surge'),
+ (0.0061089355, 'avg_rating_by_driver'),
+ (0.005639355, 'avg_rating_of_driver')]
+In [216]:
+target_names = ['Active', 'Non-Active']
+print(classification_report(y_test, y_pred, target_names = target_names))
+              precision    recall  f1-score   support
+
+      Active       0.98      0.96      0.97      4951
+  Non-Active       0.94      0.97      0.95      3384
+
+    accuracy                           0.96      8335
+   macro avg       0.96      0.96      0.96      8335
+weighted avg       0.96      0.96      0.96      8335
+
+In [217]:
+#Confusion matrix 
+# from sklearn.metrics import confusion_matrix
+# from matplotlib import pyplot as plt
+# import seaborn as sns
+cf_matrix = confusion_matrix(y_test, y_pred)
+class_names = ['Active', 'Non-Active']
+
+
+def plot_cm(y_true, y_pred, figsize=(15,10)):
+    cm = confusion_matrix(y_true, y_pred, labels=np.unique(y_true))
+    cm_sum = np.sum(cm, axis=1, keepdims=True)
+    cm_perc = cm / cm_sum.astype(float) * 100
+    annot = np.empty_like(cm).astype(str)
+    nrows, ncols = cm.shape
+    for i in range(nrows):
+        for j in range(ncols):
+            c = cm[i, j]
+            p = cm_perc[i, j]
+            if i == j:
+                s = cm_sum[i]
+                annot[i, j] = '%.1f%%\n%d/%d' % (p, c, s)
+            elif c == 0:
+                annot[i, j] = ''
+            else:
+                annot[i, j] = '%.1f%%\n%d' % (p, c)
+    cm = pd.DataFrame(cm, index=class_names, columns=class_names)
+    cm.index.name = 'Actual'
+    cm.columns.name = 'Predicted'
+    fig, ax = plt.subplots(figsize=(15,10))
+    ax = sns.heatmap(cm, cmap= "YlGnBu", annot=annot, fmt='', ax=ax)
+#     bottom, top = ax.get_ylim()
+#     ax.set_ylim(bottom + 0.5, top - 0.5)
+    
+plot_cm(y_test, y_pred)
+plt.show()
+
+In [231]:
+#ROC AUC
+import scikitplot as scikitplot #to make things easy
+y_pred_proba = xg_clf.predict_proba(X_test)
+scikitplot.metrics.plot_roc(y_test, y_pred_proba, figsize=(15,10))
+plt.show()
+
+In [229]:
+import numpy as np
+from sklearn.metrics import roc_auc_score
+y_true = y_test
+y_scores = xg_clf.predict(X_test)
+roc_auc_score(y_true, y_scores)
+Out[229]:
+0.9630983818728505
+In [271]:
+#Neural Network with Keras build 
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.wrappers.scikit_learn import KerasClassifier
+from sklearn.model_selection import cross_val_score
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+In [274]:
+# encode class values as integers
+encoder = LabelEncoder()
+encoder.fit(y)
+encoded_Y = encoder.transform(y)
+In [279]:
+# baseline model
+def create_baseline():
+	# create model
+	model = Sequential()
+	model.add(Dense(9, input_dim=9, activation='relu'))
+	model.add(Dense(1, activation='sigmoid'))
+	# Compile model
+	model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+	return model
+In [280]:
+# evaluate model with standardized dataset
+estimator = KerasClassifier(build_fn=create_baseline, epochs=100, batch_size=5, verbose=0)
+kfold = StratifiedKFold(n_splits=10, shuffle=True)
+results = cross_val_score(estimator, X, encoded_Y, cv=kfold)
+print("Baseline: %.2f%% (%.2f%%)" % (results.mean()*100, results.std()*100))
+Baseline: 91.92% (11.02%)
+In [282]:
+#Re-Run The Baseline Model With Data Preparation
+# evaluate baseline model with standardized dataset
+estimators = []
+estimators.append(('standardize', StandardScaler()))
+estimators.append(('mlp', KerasClassifier(build_fn=create_baseline, epochs=100, batch_size=5, verbose=0)))
+pipeline = Pipeline(estimators)
+kfold = StratifiedKFold(n_splits=10, shuffle=True)
+%time results = cross_val_score(pipeline, X, encoded_Y, cv=kfold)
+print("Standardized: %.2f%% (%.2f%%)" % (results.mean()*100, results.std()*100))
+CPU times: user 3h 9min 55s, sys: 58min 27s, total: 4h 8min 22s
+Wall time: 1h 50min 27s
+Standardized: 95.81% (0.26%)
+In [283]:
+#Evaluate smaller Network 
+# smaller model
+def create_smaller():
+	# create model
+	model = Sequential()
+	model.add(Dense(5, input_dim=9, activation='relu'))
+	model.add(Dense(1, activation='sigmoid'))
+	# Compile model
+	model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+	return model
+estimators = []
+estimators.append(('standardize', StandardScaler()))
+estimators.append(('mlp', KerasClassifier(build_fn=create_smaller, epochs=100, batch_size=5, verbose=0)))
+pipeline = Pipeline(estimators)
+kfold = StratifiedKFold(n_splits=10, shuffle=True)
+%time results = cross_val_score(pipeline, X, encoded_Y, cv=kfold)
+print("Smaller: %.2f%% (%.2f%%)" % (results.mean()*100, results.std()*100))
+CPU times: user 3h 15min 28s, sys: 57min 36s, total: 4h 13min 4s
+Wall time: 1h 57min 9s
+Smaller: 95.75% (0.24%)
+In [284]:
+#Evaluate larger Network 
+# larger model
+def create_larger():
+	# create model
+	model = Sequential()
+	model.add(Dense(9, input_dim=9, activation='relu'))
+	model.add(Dense(5, activation='relu'))
+	model.add(Dense(1, activation='sigmoid'))
+	# Compile model
+	model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+	return model
+estimators = []
+estimators.append(('standardize', StandardScaler()))
+estimators.append(('mlp', KerasClassifier(build_fn=create_larger, epochs=100, batch_size=5, verbose=0)))
+pipeline = Pipeline(estimators)
+kfold = StratifiedKFold(n_splits=10, shuffle=True)
+%time results = cross_val_score(pipeline, X, encoded_Y, cv=kfold)
+print("Larger: %.2f%% (%.2f%%)" % (results.mean()*100, results.std()*100))
+CPU times: user 3h 55min 2s, sys: 1h 10min 43s, total: 5h 5min 45s
+Wall time: 2h 19min 38s
+Larger: 95.88% (0.37%)
+Part 3 Section 2 Answers
+Build a predictive model to help Ultimate determine whether or not a user will be active in their 6th month on the system. Discuss why you chose your approach, what alternatives you considered, and any concerns you have. How valid is your model? Include any key indicators of model performance.
+
+Logitstic Regression, Random Forest, Xgboost and a Neural Network was used to try to predict if users would still be active in their 6th month. While, we only have information of an active user using Ultimate in the last 30 days to be labeled as active. It would be useful to collect information if how many times a week or per month users actually used Ultimate.
+The problem with just using the last 30 days is a user could just suddenly been active the last 30 days but before that was inactive the entire time. Ultimate should try to collect this information if possible.
+
+To build our predictive model we used the following columns:
+
+'city',
+'avg_rating_of_driver',
+'avg_surge',
+'phone',
+'ultimate_black_user',
+'weekday_pct',
+'avg_dist',
+'avg_rating_by_driver',
+'days_between'
+surge pct and signup date, last trip date weren't used as it woudl be redudant with avg_surge and days_between.
+
+xgboost classification gave the best score at 0.962 accuracy. However, LogisticRegression which is much faster to fit the model scored an accuracy of 0.961. If we were to deal with more data later on instead of just 50000 observations that we started off with, I would recommend using Logistic Regression as the accuracy dosen't suffer as much but the speed of the model would be definitely be faster.
+Both Xgboost and Random Forest both confirmed that days_between(last trip- sign up date) was the most important feature.
+A neural network was also built to see if accuracy could be improved. But due to the long run time and computational costs we should just stick with XGBoost and Logisitic Regression.
+Part 3 Section 3 Answers
+Briefly discuss how Ultimate might leverage the insights gained from the model to improve its long­term rider retention (again, a few sentences will suffice).
+
+We saw that the feature that was most important was days between the sign up date and the last trip. However, we should first reclasify what we think is active. Instead of just being the last 30 days. Ultimate needs to see if they can pull up user activity weekly, montly. Consistency is more important that a one time snap shot of the last 30 days.
+
+From the feature importance of Random Forest and XGBoost, we would want to encourage drivers to be more active. Promotional events can be applied during seasonal holidays.
+
+Discounted giftcards 40 dollars for a 50 dollar giftcard.
+When you charge x amount of money you get x amount of dollars for free to use on your trips. For example, 100 dollar charge is 10 bucks 500 dollar charge is 60 bucks free.
+improve application interface. We might want to investigate why there were so many non Ultimate users but these people still used ultimate cars. We should conduct an A/B test to see if we can improve the app that might make it more user friendly or inviting.
+offer discounts for companies and their employees. This would encourage brand recognition of ultimate.
+In [ ]:
