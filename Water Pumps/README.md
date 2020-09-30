@@ -1,4 +1,4 @@
-![](TanzaniaWaterPump.JPG)
+![](Docs/TanzaniaWaterPump.JPG)
 
 **1. Overview:**
 Water is critical to a country’s development, as it is not only used in agriculture but also for industrial development. Whether it’s a drink from the tap, a toilet that works, or a place to wash our hands, having water is a basic necessity that many of us take for granted. But in many parts of the world, women and children spend more than four hours walking for water each day. 
