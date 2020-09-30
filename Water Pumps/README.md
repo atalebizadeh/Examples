@@ -1,3 +1,5 @@
+![](TanzaniaWaterPump.JPG)
+
 **1. Overview:**
 Water is critical to a country’s development, as it is not only used in agriculture but also for industrial development. Whether it’s a drink from the tap, a toilet that works, or a place to wash our hands, having water is a basic necessity that many of us take for granted. But in many parts of the world, women and children spend more than four hours walking for water each day. 
 Some African countries like Tanzania have large water resources, but they still face the dilemmas where many areas have no reliable access to clean water because these resources are distributed unevenly. During the dry season, which usually lasts from June to October, even large rivers can dry up or their flow declines substantially. 
