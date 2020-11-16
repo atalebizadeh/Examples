@@ -2,5 +2,16 @@ Walt Disney Studios is the foundation on which The Walt Disney Company was built
 
 The data contains 579 Disney movies with six features: movie title, release date, genre, MPAA rating, total gross, and inflation-adjusted gross.
 
-**The top 10 Disney movies that have earned the most at the box office**
+**The top 10 Disney movies that have earned the most at the box office:**
 ![](docs/top10.JPG)
+
+
+**Genre Popularity Trend:**
+![](docs/GenrePopularityTrend.JPG)
+
+For Disney movies, Action and Adventure genres are growing the fastest. 
+
+
+**Should Disney studios make more action and adventure movies?**
+
+We will build a linear regression model to understand the relationship between genre and box office gross.
