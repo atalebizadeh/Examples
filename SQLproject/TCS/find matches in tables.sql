@@ -1,0 +1,5 @@
+SELECT * FROM Table1
+WHERE Table1."3" IS NOT NULL
+AND Table1."3" IN(
+	SELECT "3" FROM Table2);
+
